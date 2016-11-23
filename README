@@ -1,0 +1,13 @@
+本次lab要求实现一个cache模拟器。
+
+目前已完成了输入格式的规定与解析，具体如下：
+1. 必须有的参数：
+    -f [filename] : 必须有这个参数，表示输入文件，其中filename为输入文件的文件名；
+
+2. 可以没有，但可定制cache的参数：
+    -l [cache level num] : 定制cache的层数，未说明时默认为1，最大层数限制为3；
+    -s [l1 size] [l2 size] ... : 定制各层cache的大小，单位为KB，参数数量必须符合cache层数，否则会报错；
+    -a [l1 associativity] [l2 associativity] ... : 定制各层cache的组相联数，参数数量必须符合cache层数，否则会报错；
+    -p [l1 policy] [l2 policy] ... : 定制各层cache的策略，其中0表示write_back & write_non_allocate, 1表示write_through & write_non_allocate, 2表示write_back & write_allocate， 3表示write_through & write_allocate， 大于等于4则报错。参数数量必须符合cache层数，否则会报错；
+
+是否需要提供更多参数的设置入口暂时还不明确，有待进一步询问老师与修改。同时，参数的默认值设置需要进一步完成。
