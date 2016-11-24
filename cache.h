@@ -7,6 +7,7 @@
 typedef struct CacheConfig_ {
   int size;
   int associativity;
+  int blocksize;
   int set_num; // Number of cache sets
   int write_through; // 0|1 for back|through
   int write_allocate; // 0|1 for no-alc|alc
