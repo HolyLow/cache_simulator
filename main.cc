@@ -14,6 +14,7 @@ void CHECK(bool tmp, const char* message)
     }
 }
 
+
 // check if it's the power of 2
 bool is2power(int tmp)
 {
@@ -109,7 +110,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 cache_config[i].write_through = j & 1;  // least significant bit represents whether to write through
                 cache_config[i].write_allocate = j & 2; // second least significant bit represents whether to write allocate
             }
-            argCount = levelNum + 1;
+            argCount = levelNum + 1;   
         }
         else if(!strcmp(*argv, "-b")) // set block size
         {
@@ -143,6 +144,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
 // set settings to get the wanted cache and memory
 void SetSettings(Memory& m, Cache* l, StorageStats& storage_stats, CacheConfig* cache_config, StorageLatency& latency_m, StorageLatency* latency_c, int levelNum)
 {
+    // connect
     int i;
     for(i = 1; i < levelNum; i++)
         l[i].SetLower(&l[i + 1]);
@@ -150,10 +152,12 @@ void SetSettings(Memory& m, Cache* l, StorageStats& storage_stats, CacheConfig* 
 
     // set storageStatus and Configulation of memory and cache
     m.SetStats(storage_stats);
+    m.BuildMemory();
     for(i = 1; i <= levelNum; i++)
     {
         l[i].SetStats(storage_stats);
         l[i].SetConfig(cache_config[i]);
+        l[i].BuildCache();
     }
 
     // set latency of memory and cache
@@ -185,12 +189,23 @@ int main(int argc, char *argv[])
     char content[64];
     char ch_wORr;
     uint64_t addr;
+    char *block;
     printf("still ok here, before fscanf!\n");
-    while(fscanf(input, "%c%I64u", &ch_wORr, &addr) != EOF)
+    while(fscanf(input, "%c%lu", &ch_wORr, &addr) != EOF)
     {
-        int bl_wORr = (ch_wORr == 'w' ? 0 : 1);
-        l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time);
-        printf("Request access time: %dns\n", time);
+        int bl_wORr;
+        if(ch_wORr == 'w'){
+            bl_wORr = 0;
+            printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);      
+            l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
+        }
+        else if(ch_wORr == 'r'){
+            bl_wORr = 1; 
+            printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);      
+            l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
+        }
+        
+        //printf("Request access time: %dns\n", time);
         // l1.HandleRequest(1024, 0, 1, content, hit, time);
         // printf("Request access time: %dns\n", time);
     }
