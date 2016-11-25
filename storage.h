@@ -2,6 +2,8 @@
 #define CACHE_STORAGE_H_
 
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 
 #define DISALLOW_COPY_AND_ASSIGN(TypeName) \
@@ -42,8 +44,9 @@ class Storage {
   // [i|o] content: in|out data
   // [out] hit: 0|1 for miss|hit
   // [out] time: total access time
+  // [out] block: for updating correspond block when go out the recurrence
   virtual void HandleRequest(uint64_t addr, int bytes, int read,
-                             char *content, int &hit, int &time) = 0;
+                             char *content, int &hit, int &time, char* &block) = 0;
 
  protected:
   StorageStats stats_;
