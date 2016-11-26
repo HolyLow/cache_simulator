@@ -108,9 +108,9 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 j = atoi(*(argv + i));
                 CHECK(j < 4 && j >= 0, "invalid policy");
                 cache_config[i].write_through = j & 1;  // least significant bit represents whether to write through
-                cache_config[i].write_allocate = j & 2; // second least significant bit represents whether to write allocate
+                cache_config[i].write_allocate = (j>>1) & 1; // second least significant bit represents whether to write allocate
             }
-            argCount = levelNum + 1;
+            argCount = levelNum + 1;   
         }
         else if(!strcmp(*argv, "-b")) // set block size
         {
@@ -193,8 +193,12 @@ int main(int argc, char *argv[])
     uint64_t addr;
     char *block;
     printf("still ok here, before fscanf!\n");
-    while(fscanf(input, "%c%lu", &ch_wORr, &addr) != EOF)
+    int num = 10;
+    while(fscanf(input, "%c%lx", &ch_wORr, &addr) != EOF)
     {
+        content[0] = num;
+
+        printf("*************************************************************************\n");
         int bl_wORr;
         if(ch_wORr == 'w'){
             bl_wORr = 0;
@@ -206,10 +210,12 @@ int main(int argc, char *argv[])
             printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);      
             l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
         }
-        
+         printf("*************************************************************************\n");
         //printf("Request access time: %dns\n", time);
         // l1.HandleRequest(1024, 0, 1, content, hit, time);
         // printf("Request access time: %dns\n", time);
+
+        num++;
     }
     StorageStats s;
     l[1].GetStats(s);

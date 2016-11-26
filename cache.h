@@ -63,6 +63,10 @@ class Cache: public Storage {
   // LRU replacement algorithm, assume that block size are the same in cache
   char* LRUreplacement(uint64_t set_index, uint64_t tag, char* &block);
 
+  // print, for debug
+  void printEntry(CacheEntry* entry);
+  void printSet(CacheSet* set, int associativity);
+
   CacheConfig config_;
   Storage *lower_;
 
