@@ -20,7 +20,7 @@ typedef struct CacheEntry_{
   char *block;
   // linked list for LRU algorithm
   CacheEntry_* pre;
-  CacheEntry_* next;  
+  CacheEntry_* next;
 } CacheEntry;
 
 typedef struct CacheSet_{
@@ -31,6 +31,7 @@ typedef struct CacheSet_{
   CacheEntry* head;
   CacheEntry* tail;
 }CacheSet;
+
 
 class Cache: public Storage {
  public:
@@ -72,7 +73,7 @@ class Cache: public Storage {
 
   // cache implement
   CacheSet *cacheset;
-  
+
   DISALLOW_COPY_AND_ASSIGN(Cache);
 };
 

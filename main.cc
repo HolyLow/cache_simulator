@@ -110,7 +110,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 cache_config[i].write_through = j & 1;  // least significant bit represents whether to write through
                 cache_config[i].write_allocate = (j>>1) & 1; // second least significant bit represents whether to write allocate
             }
-            argCount = levelNum + 1;   
+            argCount = levelNum + 1;
         }
         else if(!strcmp(*argv, "-b")) // set block size
         {
@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
     char *block;
     printf("still ok here, before fscanf!\n");
     int num = 10;
-    while(fscanf(input, "%c%lx", &ch_wORr, &addr) != EOF)
+    while(fscanf(input, "%c\t%lu\n", &ch_wORr, &addr) != EOF)
     {
         content[0] = num;
 
@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
         if(ch_wORr == 'w'){
             inst_num++;
             bl_wORr = 0;
-            printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);      
+            printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);
             l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
             printf("Request access time: %dns\n", time);
             if(hit == 0){
@@ -217,8 +217,8 @@ int main(int argc, char *argv[])
         }
         else if(ch_wORr == 'r'){
             inst_num++;
-            bl_wORr = 1; 
-            printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);      
+            bl_wORr = 1;
+            printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);
             l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
             printf("Request access time: %dns\n", time);
             if(hit == 0){
@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
             }
         }
         //printf("*************************************************************************\n");
-        
+
         // l1.HandleRequest(1024, 0, 1, content, hit, time);
         // printf("Request access time: %dns\n", time);
 
@@ -234,13 +234,19 @@ int main(int argc, char *argv[])
     }
     StorageStats s;
     l[1].GetStats(s);
-    printf("Total L1 access time: %dns\n", s.access_time);
+    printf("Total L1 access cycle: %d\n", s.access_time);
     m.GetStats(s);
-    printf("Total Memory access time: %dns\n", s.access_time);
+    printf("Total Memory access cycle: %d\n", s.access_time);
 
     printf("Total number of instructions: %d\n", inst_num);
     printf("Total number of missed instructions: %d\n", miss_num);
     printf("Miss rate: %f\n", (float)miss_num/(float)inst_num );
+    for(i = 1; i <= levelNum; i++)
+    {
+        printf("-----------CACHE LEVEL %d----------------\n", i);
+        l[i].OutputStorage();
+        printf("\n");
+    }
 
     fclose(input);
     return 0;

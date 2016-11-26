@@ -1,6 +1,7 @@
 #ifndef CACHE_MEMORY_H_
 #define CACHE_MEMORY_H_
 
+
 #include <stdint.h>
 #include "storage.h"
 #include "def.h"
@@ -22,4 +23,4 @@ class Memory: public Storage {
   DISALLOW_COPY_AND_ASSIGN(Memory);
 };
 
-#endif //CACHE_MEMORY_H_ 
+#endif //CACHE_MEMORY_H_

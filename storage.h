@@ -36,7 +36,12 @@ class Storage {
   void GetStats(StorageStats &ss) { ss = stats_; }
   void SetLatency(StorageLatency sl) { latency_ = sl; }
   void GetLatency(StorageLatency &sl) { sl = latency_; }
-
+  void OutputStorage()
+  {
+      printf("access time : %d\n", stats_.access_counter);
+      printf("miss time : %d\n", stats_.miss_num);
+      printf("miss rate : %f\n", (float)stats_.miss_num / (float)stats_.access_counter);
+  }
   // Main access process
   // [in]  addr: access address
   // [in]  bytes: target number of bytes
@@ -53,4 +58,4 @@ class Storage {
   StorageLatency latency_;
 };
 
-#endif //CACHE_STORAGE_H_ 
+#endif //CACHE_STORAGE_H_

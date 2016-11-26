@@ -1,6 +1,7 @@
 #include "cache.h"
 #include "def.h"
 
+
 #define ONES(x,y) (((1<<(x+1))-1)-((1<<y)-1))
 
 // only for the number that is the power of 2
@@ -46,17 +47,17 @@ void Cache::BuildCache(){
     this->cacheset[i].tail  = &this->cacheset[i].entry[associativity-1];
     // for every cache entry
     for(int j = 0; j < associativity; j++){
-      this->cacheset[i].entry[j].valid = FALSE; 
+      this->cacheset[i].entry[j].valid = FALSE;
       this->cacheset[i].entry[j].write_back = FALSE;
       // pre
       if (j == 0)
          this->cacheset[i].entry[j].pre = NULL;
-      else 
+      else
          this->cacheset[i].entry[j].pre = &this->cacheset[i].entry[j-1];
       // next
       if (j == associativity-1)
          this->cacheset[i].entry[j].next = NULL;
-      else 
+      else
          this->cacheset[i].entry[j].next = &this->cacheset[i].entry[j+1];
       this->cacheset[i].entry[j].block = new char[block_size];
     }
@@ -67,7 +68,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
                           char *content, int &hit, int &time, char* &block) {
   hit = 0;
   time = 0;
-
+  stats_.access_counter++;
   // parse address
   int block_offset_bits = log2(this->config_.blocksize);
   int set_index_bits    = log2(this->config_.set_num);
@@ -93,6 +94,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       hit = 0;
       time += latency_.bus_latency + lower_time;
       stats_.access_time += latency_.bus_latency;
+      stats_.miss_num++;
     }
     // hit
     else {
@@ -110,7 +112,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     // return back, write content(block from the lower layer) to this layer
     if(hit == 0){
       char *temp_block = LRUreplacement(set_index, tag, block);
-    
+
       //printf("temp_block=%x\n", temp_block);
       // write back
       if(temp_block != NULL){
@@ -122,7 +124,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       }
 
     }
-    
+
   }
 
   // write
@@ -134,13 +136,14 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       // write-allocate
       if (this->config_.write_allocate == TRUE){
         // read
-        char update_content[64];  // avoid data lost of content 
+        char update_content[64];  // avoid data lost of content
         this->HandleRequest(addr, bytes, TRUE, update_content,
                           hit, time, block);
         // write with hit
         this->HandleRequest(addr, bytes, FALSE, content,
                           hit, time, block);
         hit = 0;
+        stats_.miss_num++;
       }
       // no write-allocate
       else{
@@ -242,7 +245,7 @@ CacheEntry* Cache::FindEntry(uint64_t set_index, uint64_t tag){
   CacheSet* target_set = &this->cacheset[set_index];
   for(int i = 0; i < this->config_.associativity; i++){
     if(tag == target_set->entry[i].tag && target_set->entry[i].valid == TRUE){
-      target_entry = &target_set->entry[i];  
+      target_entry = &target_set->entry[i];
       break;
     }
   }
@@ -254,11 +257,11 @@ char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
 
   CacheSet *replace_set = &this->cacheset[set_index];
   CacheEntry *replace_entry = replace_set->tail;
-  
+
   char *temp_block = new char[this->config_.blocksize];
   //memcpy(temp_block, replace_entry->block, this->config_.blocksize);
   //memcpy(replace_entry->block, block, this->config_.blocksize);
-  
+
   // linked list arrangement
   replace_set->tail = replace_entry->pre;
   replace_entry->pre->next = NULL;
@@ -266,7 +269,7 @@ char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
   replace_entry->next = replace_set->head;
   replace_set->head->pre = replace_entry;
   replace_set->head = replace_entry;
-  // set tag valid 
+  // set tag valid
   replace_entry->valid = TRUE;
   replace_entry->tag = tag;
   block = replace_entry->block;
@@ -277,6 +280,3 @@ char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
   }
   return NULL;
 }
-
-
-
