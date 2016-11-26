@@ -76,12 +76,13 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
   uint64_t tag          = (ONES(31, block_offset_bits+set_index_bits) & addr) >> (block_offset_bits+set_index_bits);
 
   //printf("block_offset_bits=%d, set_index_bits=%d\n", block_offset_bits, set_index_bits);
-  printf("read=%d, block_offset=%lx, set_index=%lx, tag=%lx\n", read, block_offset, set_index, tag);
+  //printf("read=%d, block_offset=%lx, set_index=%lx, tag=%lx\n", read, block_offset, set_index, tag);
 
-  printSet(&this->cacheset[set_index], this->config_.associativity);
+  //printSet(&this->cacheset[set_index], this->config_.associativity);
 
   // read
   if(read == TRUE){
+
     CacheEntry* entry = FindEntry(set_index, tag);
     // miss
     if(entry == NULL){
@@ -92,7 +93,6 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       hit = 0;
       time += latency_.bus_latency + lower_time;
       stats_.access_time += latency_.bus_latency;
-      
     }
     // hit
     else {
@@ -110,6 +110,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     // return back, write content(block from the lower layer) to this layer
     if(hit == 0){
       char *temp_block = LRUreplacement(set_index, tag, block);
+    
       //printf("temp_block=%x\n", temp_block);
       // write back
       if(temp_block != NULL){
@@ -132,12 +133,10 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
 
       // write-allocate
       if (this->config_.write_allocate == TRUE){
-        printf("content[0]=%d\n", content[0]);
         // read
         char update_content[64];  // avoid data lost of content 
         this->HandleRequest(addr, bytes, TRUE, update_content,
                           hit, time, block);
-        printf("content[0]=%d\n", content[0]);
         // write with hit
         this->HandleRequest(addr, bytes, FALSE, content,
                           hit, time, block);
@@ -171,7 +170,6 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       }
       // write-back
       else{
-        printf("content[0]=%d\n", content[0]);
         // write current layer
         for(int i = 0; i < bytes; i++)
           entry->block[block_offset+i] = content[i];
@@ -258,8 +256,8 @@ char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
   CacheEntry *replace_entry = replace_set->tail;
   
   char *temp_block = new char[this->config_.blocksize];
-  memcpy(temp_block, replace_entry->block, this->config_.blocksize);
-  memcpy(replace_entry->block, block, this->config_.blocksize);
+  //memcpy(temp_block, replace_entry->block, this->config_.blocksize);
+  //memcpy(replace_entry->block, block, this->config_.blocksize);
   
   // linked list arrangement
   replace_set->tail = replace_entry->pre;
