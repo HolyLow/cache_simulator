@@ -19,9 +19,9 @@ bool is2power(int tmp)
 {
     if(tmp == 0)
         return false;
-    while(tmp & 1 == 0)
+    while((tmp & 1) == 0)
         tmp = (unsigned int)tmp >> 1;
-    return (tmp >> 1 == 0);
+    return ((tmp >> 1) == 0);
 }
 
 // init the default settings
@@ -55,14 +55,14 @@ void InitDefaultSettings(StorageStats& storage_stats, StorageLatency& latency_m,
 
     levelNum = 1;
 
-
+    printf("settings inited!\n");
 }
 
 // get all kinds of settings from the command line
 void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_config, StorageLatency* latency_c, FILE*& input)
 {
     int i, j, argCount = 1;
-    for(argc--, argv++; argc > 0 ; argc -= argCount, argv -= argCount)
+    for(argc--, argv++; argc > 0 ; argc -= argCount, argv += argCount)
     {
         argCount = 1;
         if(!strcmp(*argv, "-f")) // set cache level num
@@ -71,13 +71,15 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
             input = fopen(*(argv + 1), "r");
             CHECK(input != NULL, "invalid input file");
             argCount = 2;
+            printf("file setted!\n");
         }
-        if(!strcmp(*argv, "-l")) // set cache level num
+        else if(!strcmp(*argv, "-l")) // set cache level num
         {
             CHECK(argc > 1, "no level num following -l");
             levelNum = atoi(*(argv + 1));
             CHECK(levelNum <= MAXLEVEL && levelNum > 0, "invalid cache level num");
             argCount = 2;
+            printf("cache level setted!\n");
         }
         else if(!strcmp(*argv, "-s")) // set cache size
         {
@@ -88,6 +90,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 CHECK(is2power(cache_config[i].size), "invalid cache size");
             }
             argCount = levelNum + 1;
+            printf("cache size setted!\n");
         }
         else if(!strcmp(*argv, "-a")) // set cache associativity
         {
@@ -98,6 +101,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 CHECK(is2power(cache_config[i].associativity), "invalid associativity");
             }
             argCount = levelNum + 1;
+            printf("associativity setted!\n");
         }
         else if(!strcmp(*argv, "-p")) // set cache policy
         {
@@ -110,6 +114,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 cache_config[i].write_allocate = j & 2; // second least significant bit represents whether to write allocate
             }
             argCount = levelNum + 1;
+            printf("policy setted!\n");
         }
         else if(!strcmp(*argv, "-b")) // set block size
         {
@@ -120,6 +125,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 CHECK(is2power(cache_config[i].blocksize), "invalid block size");
             }
             argCount = levelNum + 1;
+            printf("block size setted!\n");
         }
         else if(!strcmp(*argv, "-h")) // set hit latency
         {
@@ -130,7 +136,10 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 CHECK(latency_c[i].hit_latency > 0, "invalid cache hit latency");
             }
             argCount = levelNum + 1;
+            printf("hit latency setted!\n");
         }
+        else
+            CHECK(false, "invalid command!");
     }
     CHECK(input != NULL, "input file not provided");
     for(i = 1; i <= levelNum; i++)
