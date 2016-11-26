@@ -44,6 +44,13 @@ void InitDefaultSettings(StorageStats& storage_stats, StorageLatency& latency_m,
         latency_c[i].bus_latency = 3;
         latency_c[i].hit_latency = 10;
     }
+    latency_c[1].bus_latency = 2;
+	latency_c[2].bus_latency = 2;
+	latency_c[3].bus_latency = 4;
+
+	latency_c[1].hit_latency = 4;
+	latency_c[2].hit_latency = 5;
+	latency_c[3].hit_latency = 11;
 
     for(i = 1; i <= MAXLEVEL; i++)
     {
@@ -53,6 +60,18 @@ void InitDefaultSettings(StorageStats& storage_stats, StorageLatency& latency_m,
         cache_config[i].write_allocate = 0;
         cache_config[i].blocksize = 64;
     }
+
+    cache_config[1].size = 32;
+	cache_config[2].size = 256;
+	cache_config[3].size = 8 * 1024;
+
+	cache_config[1].associativity = 8;
+	cache_config[2].associativity = 8;
+	cache_config[3].associativity = 8;
+
+	cache_config[1].blocksize = 64;
+	cache_config[2].blocksize = 64;
+	cache_config[3].blocksize = 64;
 
     levelNum = 1;
 
