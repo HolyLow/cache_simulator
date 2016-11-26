@@ -14,6 +14,7 @@ void CHECK(bool tmp, const char* message)
     }
 }
 
+
 // check if it's the power of 2
 bool is2power(int tmp)
 {
@@ -55,7 +56,7 @@ void InitDefaultSettings(StorageStats& storage_stats, StorageLatency& latency_m,
 
     levelNum = 1;
 
-    printf("settings inited!\n");
+
 }
 
 // get all kinds of settings from the command line
@@ -71,7 +72,6 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
             input = fopen(*(argv + 1), "r");
             CHECK(input != NULL, "invalid input file");
             argCount = 2;
-            printf("file setted!\n");
         }
         else if(!strcmp(*argv, "-l")) // set cache level num
         {
@@ -79,7 +79,6 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
             levelNum = atoi(*(argv + 1));
             CHECK(levelNum <= MAXLEVEL && levelNum > 0, "invalid cache level num");
             argCount = 2;
-            printf("cache level setted!\n");
         }
         else if(!strcmp(*argv, "-s")) // set cache size
         {
@@ -90,7 +89,6 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 CHECK(is2power(cache_config[i].size), "invalid cache size");
             }
             argCount = levelNum + 1;
-            printf("cache size setted!\n");
         }
         else if(!strcmp(*argv, "-a")) // set cache associativity
         {
@@ -101,7 +99,6 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 CHECK(is2power(cache_config[i].associativity), "invalid associativity");
             }
             argCount = levelNum + 1;
-            printf("associativity setted!\n");
         }
         else if(!strcmp(*argv, "-p")) // set cache policy
         {
@@ -114,7 +111,6 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 cache_config[i].write_allocate = j & 2; // second least significant bit represents whether to write allocate
             }
             argCount = levelNum + 1;
-            printf("policy setted!\n");
         }
         else if(!strcmp(*argv, "-b")) // set block size
         {
@@ -125,7 +121,6 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 CHECK(is2power(cache_config[i].blocksize), "invalid block size");
             }
             argCount = levelNum + 1;
-            printf("block size setted!\n");
         }
         else if(!strcmp(*argv, "-h")) // set hit latency
         {
@@ -136,7 +131,6 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
                 CHECK(latency_c[i].hit_latency > 0, "invalid cache hit latency");
             }
             argCount = levelNum + 1;
-            printf("hit latency setted!\n");
         }
         else
             CHECK(false, "invalid command!");
@@ -152,6 +146,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
 // set settings to get the wanted cache and memory
 void SetSettings(Memory& m, Cache* l, StorageStats& storage_stats, CacheConfig* cache_config, StorageLatency& latency_m, StorageLatency* latency_c, int levelNum)
 {
+    // connect
     int i;
     for(i = 1; i < levelNum; i++)
         l[i].SetLower(&l[i + 1]);
@@ -159,10 +154,12 @@ void SetSettings(Memory& m, Cache* l, StorageStats& storage_stats, CacheConfig* 
 
     // set storageStatus and Configulation of memory and cache
     m.SetStats(storage_stats);
+    m.BuildMemory();
     for(i = 1; i <= levelNum; i++)
     {
         l[i].SetStats(storage_stats);
         l[i].SetConfig(cache_config[i]);
+        l[i].BuildCache();
     }
 
     // set latency of memory and cache
@@ -194,12 +191,23 @@ int main(int argc, char *argv[])
     char content[64];
     char ch_wORr;
     uint64_t addr;
+    char *block;
     printf("still ok here, before fscanf!\n");
-    while(fscanf(input, "%c%I64u", &ch_wORr, &addr) != EOF)
+    while(fscanf(input, "%c%lu", &ch_wORr, &addr) != EOF)
     {
-        int bl_wORr = (ch_wORr == 'w' ? 0 : 1);
-        l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time);
-        printf("Request access time: %dns\n", time);
+        int bl_wORr;
+        if(ch_wORr == 'w'){
+            bl_wORr = 0;
+            printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);      
+            l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
+        }
+        else if(ch_wORr == 'r'){
+            bl_wORr = 1; 
+            printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);      
+            l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
+        }
+        
+        //printf("Request access time: %dns\n", time);
         // l1.HandleRequest(1024, 0, 1, content, hit, time);
         // printf("Request access time: %dns\n", time);
     }
