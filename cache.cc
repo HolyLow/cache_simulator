@@ -13,6 +13,23 @@ int log2(int temp){
     return num;
 }
 
+void Cache::printEntry(CacheEntry* entry){
+  printf("addr=%lx, tag=%lx, valid=%d, block[0]=%d\n", entry, entry->tag, entry->valid, entry->block[0]);
+}
+
+void Cache::printSet(CacheSet* set, int associativity){
+  printf("set_index = %d, associativity=%d\n", set->index, associativity);
+  printf("---------------------------------------------\n");
+  CacheEntry *current = set->head;
+  while(current != NULL){
+    this->printEntry(current);
+    current = current->next;
+  }
+  printf("---------------------------------------------\n");
+}
+
+
+
 void Cache::BuildCache(){
   int block_size = this->config_.blocksize;    // byte
   int cache_size = this->config_.size * 1024;  // byte
@@ -28,7 +45,7 @@ void Cache::BuildCache(){
     this->cacheset[i].head  = &this->cacheset[i].entry[0];
     this->cacheset[i].tail  = &this->cacheset[i].entry[associativity-1];
     // for every cache entry
-    for(int j = 0; j < block_size; j++){
+    for(int j = 0; j < associativity; j++){
       this->cacheset[i].entry[j].valid = FALSE; 
       this->cacheset[i].entry[j].write_back = FALSE;
       // pre
@@ -37,7 +54,7 @@ void Cache::BuildCache(){
       else 
          this->cacheset[i].entry[j].pre = &this->cacheset[i].entry[j-1];
       // next
-      if (j == block_size-1)
+      if (j == associativity-1)
          this->cacheset[i].entry[j].next = NULL;
       else 
          this->cacheset[i].entry[j].next = &this->cacheset[i].entry[j+1];
@@ -58,9 +75,10 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
   uint64_t set_index    = (ONES(block_offset_bits+set_index_bits-1, block_offset_bits) & addr) >> block_offset_bits;
   uint64_t tag          = (ONES(31, block_offset_bits+set_index_bits) & addr) >> (block_offset_bits+set_index_bits);
 
-  printf("block_offset_bits=%d, set_index_bits=%d\n", block_offset_bits, set_index_bits);
-  printf("block_offset=%lx, set_index=%lx, tag=%lx\n\n", block_offset, set_index, tag);
+  //printf("block_offset_bits=%d, set_index_bits=%d\n", block_offset_bits, set_index_bits);
+  printf("read=%d, block_offset=%lx, set_index=%lx, tag=%lx\n", read, block_offset, set_index, tag);
 
+  printSet(&this->cacheset[set_index], this->config_.associativity);
 
   // read
   if(read == TRUE){
@@ -79,6 +97,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     // hit
     else {
       // copy to content
+
       for(int i = 0; i < bytes; i++)
         content[i] = entry->block[i];
       block = entry->block;
@@ -91,7 +110,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     // return back, write content(block from the lower layer) to this layer
     if(hit == 0){
       char *temp_block = LRUreplacement(set_index, tag, block);
-      printf("temp_block=%x\n", temp_block);
+      //printf("temp_block=%x\n", temp_block);
       // write back
       if(temp_block != NULL){
         int lower_hit, lower_time;
@@ -110,11 +129,15 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     CacheEntry* entry = FindEntry(set_index, tag);
     // miss
     if(entry == NULL){
+
       // write-allocate
       if (this->config_.write_allocate == TRUE){
+        printf("content[0]=%d\n", content[0]);
         // read
-        this->HandleRequest(addr, bytes, TRUE, content,
+        char update_content[64];  // avoid data lost of content 
+        this->HandleRequest(addr, bytes, TRUE, update_content,
                           hit, time, block);
+        printf("content[0]=%d\n", content[0]);
         // write with hit
         this->HandleRequest(addr, bytes, FALSE, content,
                           hit, time, block);
@@ -148,6 +171,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       }
       // write-back
       else{
+        printf("content[0]=%d\n", content[0]);
         // write current layer
         for(int i = 0; i < bytes; i++)
           entry->block[block_offset+i] = content[i];
@@ -229,6 +253,7 @@ CacheEntry* Cache::FindEntry(uint64_t set_index, uint64_t tag){
 
 // get from tail, save to head
 char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
+
   CacheSet *replace_set = &this->cacheset[set_index];
   CacheEntry *replace_entry = replace_set->tail;
   
@@ -254,5 +279,6 @@ char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
   }
   return NULL;
 }
+
 
 
