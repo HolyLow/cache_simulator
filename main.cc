@@ -20,9 +20,9 @@ bool is2power(int tmp)
 {
     if(tmp == 0)
         return false;
-    while(tmp & 1 == 0)
+    while((tmp & 1) == 0)
         tmp = (unsigned int)tmp >> 1;
-    return (tmp >> 1 == 0);
+    return ((tmp >> 1) == 0);
 }
 
 // init the default settings
@@ -63,7 +63,7 @@ void InitDefaultSettings(StorageStats& storage_stats, StorageLatency& latency_m,
 void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_config, StorageLatency* latency_c, FILE*& input)
 {
     int i, j, argCount = 1;
-    for(argc--, argv++; argc > 0 ; argc -= argCount, argv -= argCount)
+    for(argc--, argv++; argc > 0 ; argc -= argCount, argv += argCount)
     {
         argCount = 1;
         if(!strcmp(*argv, "-f")) // set cache level num
@@ -73,7 +73,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
             CHECK(input != NULL, "invalid input file");
             argCount = 2;
         }
-        if(!strcmp(*argv, "-l")) // set cache level num
+        else if(!strcmp(*argv, "-l")) // set cache level num
         {
             CHECK(argc > 1, "no level num following -l");
             levelNum = atoi(*(argv + 1));
@@ -132,6 +132,8 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
             }
             argCount = levelNum + 1;
         }
+        else
+            CHECK(false, "invalid command!");
     }
     CHECK(input != NULL, "input file not provided");
     for(i = 1; i <= levelNum; i++)
