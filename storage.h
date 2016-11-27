@@ -38,7 +38,7 @@ class Storage {
   void GetLatency(StorageLatency &sl) { sl = latency_; }
   void OutputStorage()
   {
-      printf("access time : %d\n", stats_.access_counter);
+      printf("access time : %d\n", stats_.access_time);
       printf("miss time : %d\n", stats_.miss_num);
       printf("miss rate : %f\n", (float)stats_.miss_num / (float)stats_.access_counter);
   }

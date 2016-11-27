@@ -15,7 +15,7 @@ typedef struct CacheConfig_ {
 
 typedef struct CacheEntry_{
   bool valid;
-  unsigned int tag;
+  uint64_t tag;
   bool write_back; // whether to write back when doing replacement
   char *block;
   // linked list for LRU algorithm

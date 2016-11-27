@@ -76,8 +76,8 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
   uint64_t set_index    = (ONES(block_offset_bits+set_index_bits-1, block_offset_bits) & addr) >> block_offset_bits;
   uint64_t tag          = (ONES(31, block_offset_bits+set_index_bits) & addr) >> (block_offset_bits+set_index_bits);
 
-  //printf("block_offset_bits=%d, set_index_bits=%d\n", block_offset_bits, set_index_bits);
-  //printf("read=%d, block_offset=%lx, set_index=%lx, tag=%lx\n", read, block_offset, set_index, tag);
+  printf("block_offset_bits=%d, set_index_bits=%d\n", block_offset_bits, set_index_bits);
+  printf("read=%d, block_offset=%lx, set_index=%lx, tag=%lx\n", read, block_offset, set_index, tag);
 
   //printSet(&this->cacheset[set_index], this->config_.associativity);
 
@@ -112,7 +112,6 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     // return back, write content(block from the lower layer) to this layer
     if(hit == 0){
       char *temp_block = LRUreplacement(set_index, tag, block);
-
       //printf("temp_block=%x\n", temp_block);
       // write back
       if(temp_block != NULL){
@@ -130,9 +129,9 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
   // write
   else{
     CacheEntry* entry = FindEntry(set_index, tag);
+
     // miss
     if(entry == NULL){
-
       // write-allocate
       if (this->config_.write_allocate == TRUE){
         // read
@@ -254,7 +253,6 @@ CacheEntry* Cache::FindEntry(uint64_t set_index, uint64_t tag){
 
 // get from tail, save to head
 char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
-
   CacheSet *replace_set = &this->cacheset[set_index];
   CacheEntry *replace_entry = replace_set->tail;
 
@@ -263,19 +261,22 @@ char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
   //memcpy(replace_entry->block, block, this->config_.blocksize);
 
   // linked list arrangement
-  replace_set->tail = replace_entry->pre;
-  replace_entry->pre->next = NULL;
-  replace_entry->pre = NULL;
-  replace_entry->next = replace_set->head;
-  replace_set->head->pre = replace_entry;
-  replace_set->head = replace_entry;
+  if(this->config_.associativity != 1){
+    replace_set->tail = replace_entry->pre;
+    replace_entry->pre->next = NULL;
+    replace_entry->pre = NULL;
+    replace_entry->next = replace_set->head;
+    replace_set->head->pre = replace_entry;
+    replace_set->head = replace_entry;
+  }
+  
   // set tag valid
   replace_entry->valid = TRUE;
   replace_entry->tag = tag;
   block = replace_entry->block;
   //check whether write back
   if (replace_entry->write_back == TRUE){
-    replace_entry->write_back == FALSE;
+    replace_entry->write_back = FALSE;
     return temp_block;
   }
   return NULL;

@@ -206,12 +206,8 @@ int main(int argc, char *argv[])
     Cache l[MAXLEVEL + 1];         // for convenience, l[1] is the highest cache, and l[0] is not used
     SetSettings(m, l, storage_stats, cache_config, latency_m, latency_c, levelNum);
 
-    // statistics
-    int inst_num = 0; // number of instruxtions
-    int miss_num = 0; // number of missed instructions
 
-
-    int hit, time;
+    int hit, time, total_time = 0;
     char content[64];
     char ch_wORr;
     uint64_t addr;
@@ -225,24 +221,18 @@ int main(int argc, char *argv[])
         //printf("*************************************************************************\n");
         int bl_wORr;
         if(ch_wORr == 'w'){
-            inst_num++;
             bl_wORr = 0;
             printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);
             l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
             printf("Request access time: %dns\n", time);
-            if(hit == 0){
-                miss_num++;
-            }
+            total_time += time;
         }
         else if(ch_wORr == 'r'){
-            inst_num++;
             bl_wORr = 1;
             printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);
             l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
             printf("Request access time: %dns\n", time);
-            if(hit == 0){
-                miss_num++;
-            }
+            total_time += time;
         }
         //printf("*************************************************************************\n");
 
@@ -257,15 +247,13 @@ int main(int argc, char *argv[])
     m.GetStats(s);
     printf("Total Memory access cycle: %d\n", s.access_time);
 
-    printf("Total number of instructions: %d\n", inst_num);
-    printf("Total number of missed instructions: %d\n", miss_num);
-    printf("Miss rate: %f\n", (float)miss_num/(float)inst_num );
     for(i = 1; i <= levelNum; i++)
     {
         printf("-----------CACHE LEVEL %d----------------\n", i);
         l[i].OutputStorage();
         printf("\n");
     }
+    printf("total time:%d\n", total_time);
 
     fclose(input);
     return 0;
