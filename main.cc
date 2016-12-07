@@ -111,7 +111,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
         }
         else if(!strcmp(*argv, "-a")) // set cache associativity
         {
-            CHECK(argc > levelNum, "no enough associativity num following -s");
+            CHECK(argc > levelNum, "no enough associativity num following -a");
             for(i = 1; i <= levelNum; i++)
             {
                 cache_config[i].associativity = atoi(*(argv + i));
@@ -133,7 +133,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
         }
         else if(!strcmp(*argv, "-b")) // set block size
         {
-            CHECK(argc > levelNum, "no enough block size num following -p");
+            CHECK(argc > levelNum, "no enough block size num following -b");
             for(i = 1; i <= levelNum; i++)
             {
                 cache_config[i].blocksize = atoi(*(argv + i));
@@ -141,13 +141,23 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
             }
             argCount = levelNum + 1;
         }
-        else if(!strcmp(*argv, "-h")) // set hit latency
+        else if(!strcmp(*argv, "-hl")) // set hit latency
         {
-            CHECK(argc > levelNum, "no enough hit latency num following -p");
+            CHECK(argc > levelNum, "no enough hit latency num following -hl");
             for(i = 1; i <= levelNum; i++)
             {
                 latency_c[i].hit_latency = atoi(*(argv + i));
                 CHECK(latency_c[i].hit_latency > 0, "invalid cache hit latency");
+            }
+            argCount = levelNum + 1;
+        }
+        else if(!strcmp(*argv, "-bl")) // set hit latency
+        {
+            CHECK(argc > levelNum, "no enough bus latency num following -bl");
+            for(i = 1; i <= levelNum; i++)
+            {
+                latency_c[i].bus_latency = atoi(*(argv + i));
+                CHECK(latency_c[i].bus_latency > 0, "invalid cache bus latency");
             }
             argCount = levelNum + 1;
         }
@@ -212,10 +222,10 @@ int main(int argc, char *argv[])
     char ch_wORr;
     uint64_t addr;
     printf("still ok here, before fscanf!\n");
-    int num = 10;
-    while(fscanf(input, "%c\t%lu\n", &ch_wORr, &addr) != EOF)
+    int num = 0;
+    while(fscanf(input, "%c %lx\n", &ch_wORr, &addr) != EOF)
     {
-        content[0] = num;
+        content[0] = 0;
 
         //printf("*************************************************************************\n");
         int bl_wORr;
@@ -242,9 +252,9 @@ int main(int argc, char *argv[])
     }
     StorageStats s;
     l[1].GetStats(s);
-    printf("Total L1 access cycle: %d\n", s.access_time);
+    printf("Total L1 access cycle: %d\n", s.access_counter);
     m.GetStats(s);
-    printf("Total Memory access cycle: %d\n", s.access_time);
+    printf("Total Memory access cycle: %d\n", s.access_counter);
 
     for(i = 1; i <= levelNum; i++)
     {
@@ -253,7 +263,7 @@ int main(int argc, char *argv[])
         printf("\n");
     }
     printf("total time:%d\n", total_time);
-
+    printf("access num: %d\n", num);
     fclose(input);
     return 0;
 }

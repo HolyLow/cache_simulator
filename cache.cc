@@ -129,16 +129,19 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     // miss
     if(entry == NULL){
       // write-allocate
+      stats_.miss_num++;
       if (this->config_.write_allocate == TRUE){
         // read
         char update_content[64];  // avoid data lost of content
         this->HandleRequest(addr, bytes, TRUE, update_content,
                           hit, time);
+        stats_.access_counter--;
+        stats_.miss_num--;
         // write with hit
         this->HandleRequest(addr, bytes, FALSE, content,
                           hit, time);
+        stats_.access_counter--;
         hit = 0;
-        stats_.miss_num++;
       }
       // no write-allocate
       else{
@@ -263,7 +266,7 @@ char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag){
     replace_set->head->pre = replace_entry;
     replace_set->head = replace_entry;
   }
-  
+
   // set tag valid
   replace_entry->valid = TRUE;
   replace_entry->tag = tag;
