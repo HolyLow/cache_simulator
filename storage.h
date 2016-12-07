@@ -38,7 +38,7 @@ class Storage {
   void GetLatency(StorageLatency &sl) { sl = latency_; }
   void OutputStorage()
   {
-      printf("access time : %d\n", stats_.access_counter);
+      printf("access time : %d\n", stats_.access_time);
       printf("miss time : %d\n", stats_.miss_num);
       printf("miss rate : %f\n", (float)stats_.miss_num / (float)stats_.access_counter);
   }
@@ -51,7 +51,7 @@ class Storage {
   // [out] time: total access time
   // [out] block: for updating correspond block when go out the recurrence
   virtual void HandleRequest(uint64_t addr, int bytes, int read,
-                             char *content, int &hit, int &time, char* &block) = 0;
+                             char *content, int &hit, int &time) = 0;
 
  protected:
   StorageStats stats_;

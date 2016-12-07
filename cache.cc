@@ -15,7 +15,7 @@ int log2(int temp){
 }
 
 void Cache::printEntry(CacheEntry* entry){
-  printf("addr=%lx, tag=%lx, valid=%d, block[0]=%d\n", entry, entry->tag, entry->valid, entry->block[0]);
+  printf("addr=%lx, tag=%lx, valid=%d\n", entry, entry->tag, entry->valid);
 }
 
 void Cache::printSet(CacheSet* set, int associativity){
@@ -59,13 +59,12 @@ void Cache::BuildCache(){
          this->cacheset[i].entry[j].next = NULL;
       else
          this->cacheset[i].entry[j].next = &this->cacheset[i].entry[j+1];
-      this->cacheset[i].entry[j].block = new char[block_size];
     }
   }
 }
 
 void Cache::HandleRequest(uint64_t addr, int bytes, int read,
-                          char *content, int &hit, int &time, char* &block) {
+                          char *content, int &hit, int &time) {
   hit = 0;
   time = 0;
   stats_.access_counter++;
@@ -90,7 +89,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       // Fetch from lower layer
       int lower_hit, lower_time;
       lower_->HandleRequest(addr, bytes, read, content,
-                          lower_hit, lower_time, block);
+                          lower_hit, lower_time);
       hit = 0;
       time += latency_.bus_latency + lower_time;
       stats_.access_time += latency_.bus_latency;
@@ -98,11 +97,8 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     }
     // hit
     else {
+      // read content
       // copy to content
-
-      for(int i = 0; i < bytes; i++)
-        content[i] = entry->block[i];
-      block = entry->block;
       hit = 1;
       time += latency_.bus_latency + latency_.hit_latency;
       stats_.access_time += time;
@@ -111,14 +107,13 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
 
     // return back, write content(block from the lower layer) to this layer
     if(hit == 0){
-      char *temp_block = LRUreplacement(set_index, tag, block);
-
+      char *temp_block = LRUreplacement(set_index, tag);
       //printf("temp_block=%x\n", temp_block);
       // write back
       if(temp_block != NULL){
         int lower_hit, lower_time;
         lower_->HandleRequest(addr, this->config_.blocksize, FALSE, temp_block,
-                          lower_hit, lower_time, block);
+                          lower_hit, lower_time);
         // write-back time don't care?
         //time += lower_time;
       }
@@ -130,18 +125,18 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
   // write
   else{
     CacheEntry* entry = FindEntry(set_index, tag);
+
     // miss
     if(entry == NULL){
-
       // write-allocate
       if (this->config_.write_allocate == TRUE){
         // read
         char update_content[64];  // avoid data lost of content
         this->HandleRequest(addr, bytes, TRUE, update_content,
-                          hit, time, block);
+                          hit, time);
         // write with hit
         this->HandleRequest(addr, bytes, FALSE, content,
-                          hit, time, block);
+                          hit, time);
         hit = 0;
         stats_.miss_num++;
       }
@@ -150,7 +145,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
         // directly write lower layer
         int lower_hit, lower_time;
         lower_->HandleRequest(addr, bytes, FALSE, content,
-                          lower_hit, lower_time, block);
+                          lower_hit, lower_time);
         hit = 0;
         time += latency_.bus_latency + lower_time;
         stats_.access_time += latency_.bus_latency;
@@ -161,12 +156,11 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       // write-through
       if (this->config_.write_through){
         // write current layer
-        for(int i = 0; i < bytes; i++)
-          entry->block[block_offset+i] = content[i];
+
         // write to lower layer
         int lower_hit, lower_time;
         lower_->HandleRequest(addr, bytes, read, content,
-                          lower_hit, lower_time, block);
+                          lower_hit, lower_time);
         hit = 1;
         time += latency_.bus_latency + latency_.hit_latency + lower_time;
         stats_.access_time += latency_.bus_latency + latency_.hit_latency;
@@ -174,8 +168,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       // write-back
       else{
         // write current layer
-        for(int i = 0; i < bytes; i++)
-          entry->block[block_offset+i] = content[i];
+
         hit = 1;
         entry->write_back = TRUE;
         time += latency_.bus_latency + latency_.hit_latency;
@@ -253,8 +246,7 @@ CacheEntry* Cache::FindEntry(uint64_t set_index, uint64_t tag){
 }
 
 // get from tail, save to head
-char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
-
+char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag){
   CacheSet *replace_set = &this->cacheset[set_index];
   CacheEntry *replace_entry = replace_set->tail;
 
@@ -263,19 +255,21 @@ char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag, char* &block){
   //memcpy(replace_entry->block, block, this->config_.blocksize);
 
   // linked list arrangement
-  replace_set->tail = replace_entry->pre;
-  replace_entry->pre->next = NULL;
-  replace_entry->pre = NULL;
-  replace_entry->next = replace_set->head;
-  replace_set->head->pre = replace_entry;
-  replace_set->head = replace_entry;
+  if(this->config_.associativity != 1){
+    replace_set->tail = replace_entry->pre;
+    replace_entry->pre->next = NULL;
+    replace_entry->pre = NULL;
+    replace_entry->next = replace_set->head;
+    replace_set->head->pre = replace_entry;
+    replace_set->head = replace_entry;
+  }
+  
   // set tag valid
   replace_entry->valid = TRUE;
   replace_entry->tag = tag;
-  block = replace_entry->block;
   //check whether write back
   if (replace_entry->write_back == TRUE){
-    replace_entry->write_back == FALSE;
+    replace_entry->write_back = FALSE;
     return temp_block;
   }
   return NULL;
