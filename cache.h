@@ -17,7 +17,6 @@ typedef struct CacheEntry_{
   bool valid;
   uint64_t tag;
   bool write_back; // whether to write back when doing replacement
-  char *block;
   // linked list for LRU algorithm
   CacheEntry_* pre;
   CacheEntry_* next;
@@ -46,7 +45,7 @@ class Cache: public Storage {
   void BuildCache();
   // Main access process
   void HandleRequest(uint64_t addr, int bytes, int read,
-                     char *content, int &hit, int &time, char* &block);
+                     char *content, int &hit, int &time);
 
  private:
   // Bypassing
@@ -62,7 +61,7 @@ class Cache: public Storage {
 
   CacheEntry* FindEntry(uint64_t set_index, uint64_t tag);
   // LRU replacement algorithm, assume that block size are the same in cache
-  char* LRUreplacement(uint64_t set_index, uint64_t tag, char* &block);
+  char* LRUreplacement(uint64_t set_index, uint64_t tag);
 
   // print, for debug
   void printEntry(CacheEntry* entry);

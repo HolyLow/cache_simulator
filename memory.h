@@ -13,13 +13,10 @@ class Memory: public Storage {
 
   // Main access process
   void HandleRequest(uint64_t addr, int bytes, int read,
-                     char *content, int &hit, int &time, char* &block);
+                     char *content, int &hit, int &time);
   void BuildMemory();
 
  private:
-  // Memory implement
- char *memory;
-
   DISALLOW_COPY_AND_ASSIGN(Memory);
 };
 

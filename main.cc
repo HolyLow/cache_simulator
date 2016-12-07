@@ -211,7 +211,6 @@ int main(int argc, char *argv[])
     char content[64];
     char ch_wORr;
     uint64_t addr;
-    char *block;
     printf("still ok here, before fscanf!\n");
     int num = 10;
     while(fscanf(input, "%c\t%lu\n", &ch_wORr, &addr) != EOF)
@@ -223,14 +222,14 @@ int main(int argc, char *argv[])
         if(ch_wORr == 'w'){
             bl_wORr = 0;
             printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);
-            l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
+            l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time);
             printf("Request access time: %dns\n", time);
             total_time += time;
         }
         else if(ch_wORr == 'r'){
             bl_wORr = 1;
             printf("addr=%lx(%lu), read=%c\n",addr, addr, ch_wORr);
-            l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time, block);
+            l[1].HandleRequest(addr, 1, bl_wORr, content, hit, time);
             printf("Request access time: %dns\n", time);
             total_time += time;
         }
