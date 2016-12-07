@@ -10,4 +10,5 @@
     -a [l1 associativity] [l2 associativity] ... : 定制各层cache的组相联数，参数数量必须符合cache层数，否则会报错；
     -p [l1 policy] [l2 policy] ... : 定制各层cache的策略，其中0表示write_back & write_non_allocate, 1表示write_through & write_non_allocate, 2表示write_back & write_allocate， 3表示write_through & write_allocate， 大于等于4则报错。参数数量必须符合cache层数，否则会报错；
     -b [l1 blocksize] [l2 blocksize] ... : 定制各层cache的block大小，单位为B，参数数量必须符合cache层数，否则会报错；
-    -h [l1 hitlatency] [l2 hitlatency] ... : 定制各层cache的hit_latency周期数，参数数量必须符合cache层数，否则会报错；
+    -hl [l1 hitlatency] [l2 hitlatency] ... : 定制各层cache的hit_latency周期数，参数数量必须符合cache层数，否则会报错；
+    -bl [l1 buslatency] [l2 buslatency] ... : 定制各层cache的bus_latency周期数，参数数量必须符合cache层数，否则会报错；
