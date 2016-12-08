@@ -15,6 +15,7 @@ class Memory: public Storage {
   void HandleRequest(uint64_t addr, int bytes, int read,
                      char *content, int &hit, int &time);
   void BuildMemory();
+    void PrefetchAlgorithm(uint64_t prefetch_addr);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Memory);

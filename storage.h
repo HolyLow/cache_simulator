@@ -52,6 +52,7 @@ class Storage {
   // [out] block: for updating correspond block when go out the recurrence
   virtual void HandleRequest(uint64_t addr, int bytes, int read,
                              char *content, int &hit, int &time) = 0;
+  virtual void PrefetchAlgorithm(uint64_t prefetch_addr) = 0;
 
  protected:
   StorageStats stats_;

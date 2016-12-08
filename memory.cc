@@ -23,3 +23,8 @@ void Memory::HandleRequest(uint64_t addr, int bytes, int read,
 void Memory::BuildMemory(){
 
 }
+
+void Memory::PrefetchAlgorithm(uint64_t prefetch_addr)
+{
+    return;
+}

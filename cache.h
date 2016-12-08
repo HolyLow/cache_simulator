@@ -11,6 +11,7 @@ typedef struct CacheConfig_ {
   int set_num; // Number of cache sets
   int write_through; // 0|1 for back|through
   int write_allocate; // 0|1 for no-alc|alc
+  bool pre_fetch;
 } CacheConfig;
 
 typedef struct CacheEntry_{
@@ -20,6 +21,7 @@ typedef struct CacheEntry_{
   // linked list for LRU algorithm
   CacheEntry_* pre;
   CacheEntry_* next;
+  uint64_t latest_visit_offset;
 } CacheEntry;
 
 typedef struct CacheSet_{
@@ -47,6 +49,7 @@ class Cache: public Storage {
   void HandleRequest(uint64_t addr, int bytes, int read,
                      char *content, int &hit, int &time);
 
+  void PrefetchAlgorithm(uint64_t prefetch_addr);
  private:
   // Bypassing
   int BypassDecision();
@@ -56,12 +59,12 @@ class Cache: public Storage {
   int ReplaceDecision();
   void ReplaceAlgorithm();
   // Prefetching
-  int PrefetchDecision();
-  void PrefetchAlgorithm();
+  void PrefetchDecision(uint64_t set_index, uint64_t tag, uint64_t current_visit_offset);
 
   CacheEntry* FindEntry(uint64_t set_index, uint64_t tag);
   // LRU replacement algorithm, assume that block size are the same in cache
   char* LRUreplacement(uint64_t set_index, uint64_t tag);
+  void LRUrefresh(uint64_t set_index, uint64_t tag);
 
   // print, for debug
   void printEntry(CacheEntry* entry);
@@ -72,6 +75,7 @@ class Cache: public Storage {
 
   // cache implement
   CacheSet *cacheset;
+  uint64_t current_visit_addr;
 
   DISALLOW_COPY_AND_ASSIGN(Cache);
 };

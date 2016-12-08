@@ -73,6 +73,9 @@ void InitDefaultSettings(StorageStats& storage_stats, StorageLatency& latency_m,
 	cache_config[2].blocksize = 64;
 	cache_config[3].blocksize = 64;
 
+    cache_config[1].pre_fetch = true;
+    cache_config[2].pre_fetch = false;
+    cache_config[3].pre_fetch = false;
     levelNum = 1;
 
 

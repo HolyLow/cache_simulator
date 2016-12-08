@@ -49,6 +49,7 @@ void Cache::BuildCache(){
     for(int j = 0; j < associativity; j++){
       this->cacheset[i].entry[j].valid = FALSE;
       this->cacheset[i].entry[j].write_back = FALSE;
+      this->cacheset[i].entry[j].latest_visit_offset = -1;
       // pre
       if (j == 0)
          this->cacheset[i].entry[j].pre = NULL;
@@ -102,7 +103,8 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       hit = 1;
       time += latency_.bus_latency + latency_.hit_latency;
       stats_.access_time += time;
-      return;
+      LRUrefresh(set_index, tag);
+    //   return;
     }
 
     // return back, write content(block from the lower layer) to this layer
@@ -167,6 +169,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
         hit = 1;
         time += latency_.bus_latency + latency_.hit_latency + lower_time;
         stats_.access_time += latency_.bus_latency + latency_.hit_latency;
+        LRUrefresh(set_index, tag);
       }
       // write-back
       else{
@@ -176,10 +179,15 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
         entry->write_back = TRUE;
         time += latency_.bus_latency + latency_.hit_latency;
         stats_.access_time += latency_.bus_latency + latency_.hit_latency;
+        LRUrefresh(set_index, tag);
       }
 
     }
   }
+  if(config_.pre_fetch)
+    PrefetchDecision(set_index, tag, block_offset);
+  CacheEntry* entry = FindEntry(set_index, tag);
+  entry->latest_visit_offset = block_offset;
 
 /*
   // Bypass?
@@ -228,11 +236,67 @@ int Cache::ReplaceDecision() {
 void Cache::ReplaceAlgorithm(){
 }
 
-int Cache::PrefetchDecision() {
-  return FALSE;
+void Cache::PrefetchDecision(uint64_t set_index, uint64_t tag, uint64_t current_visit_offset) {
+    CacheEntry* entry = FindEntry(set_index, tag);
+    if(entry == NULL)
+    {
+        printf("sth has got wrong in prefetch.\n");
+        exit(0);
+    }
+    // int block_offset_bits = log2(this->config_.blocksize);
+    //     int set_index_bits    = log2(this->config_.set_num);
+    // printf("decide to prefetch down!\n");
+    //         // printf("step = %d\n", step);
+    // printf("set_index = %d\n", set_index);
+    // uint64_t prefetch_addr = (set_index << block_offset_bits) | (tag << (block_offset_bits+set_index_bits));
+    // prefetch_addr += 1 << block_offset_bits;
+    // PrefetchAlgorithm(prefetch_addr);
+    if(entry->latest_visit_offset != -1)
+    {
+        int step = current_visit_offset - entry->latest_visit_offset;
+        int block_offset_bits = log2(this->config_.blocksize);
+        int set_index_bits    = log2(this->config_.set_num);
+        if(step >= config_.blocksize || step <= -1 * config_.blocksize)
+            printf("error: step = %d\n");
+        if(step + current_visit_offset >= config_.blocksize && FindEntry((set_index + 1) % this->config_.set_num, tag) == NULL)
+        {
+            printf("decide to prefetch down!\n");
+            printf("step = %d\n", step);
+            printf("set_index = %d\n", set_index);
+            uint64_t prefetch_addr = (set_index << block_offset_bits) | (tag << (block_offset_bits+set_index_bits));
+            prefetch_addr += 1 << block_offset_bits;
+            PrefetchAlgorithm(prefetch_addr);
+        }
+        else if(step + current_visit_offset < 0 && FindEntry((set_index - 1) % this->config_.set_num, tag) == NULL)
+        {
+            printf("decide to prefetch up!\n");
+            printf("step = %d\n", step);
+            printf("set_index = %d\n", set_index);
+            uint64_t prefetch_addr = (set_index << block_offset_bits) | (tag << (block_offset_bits+set_index_bits));
+            prefetch_addr -= 1 << block_offset_bits;
+            PrefetchAlgorithm(prefetch_addr);
+        }
+    }
 }
 
-void Cache::PrefetchAlgorithm() {
+void Cache::PrefetchAlgorithm(uint64_t prefetch_addr) {
+    int block_offset_bits = log2(this->config_.blocksize);
+    int set_index_bits    = log2(this->config_.set_num);
+    // uint64_t block_offset = ONES(block_offset_bits-1, 0) & addr;
+    uint64_t set_index    = (ONES(block_offset_bits+set_index_bits-1, block_offset_bits) & prefetch_addr) >> block_offset_bits;
+    uint64_t tag          = (ONES(31, block_offset_bits+set_index_bits) & prefetch_addr) >> (block_offset_bits+set_index_bits);
+    if(FindEntry(set_index, tag) != NULL)
+        return;
+    stats_.prefetch_num++;
+    char *temp_block = LRUreplacement(set_index, tag);
+    //printf("temp_block=%x\n", temp_block);
+    // write back
+    // if(temp_block != NULL){
+    //   int lower_hit, lower_time;
+    //   lower_->HandleRequest(this->current_visit_addr, this->config_.blocksize, FALSE, temp_block,
+    //                     lower_hit, lower_time);
+    // }
+    lower_->PrefetchAlgorithm(prefetch_addr);
 }
 
 // if not find, return NULL
@@ -270,10 +334,42 @@ char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag){
   // set tag valid
   replace_entry->valid = TRUE;
   replace_entry->tag = tag;
+  replace_entry->latest_visit_offset = -1;
   //check whether write back
   if (replace_entry->write_back == TRUE){
     replace_entry->write_back = FALSE;
     return temp_block;
   }
   return NULL;
+}
+
+void Cache::LRUrefresh(uint64_t set_index, uint64_t tag){
+  if(this->config_.associativity == 1)
+    return;
+  CacheSet *set = &this->cacheset[set_index];
+  // CacheEntry *replace_entry = replace_set->tail;
+  //
+  // char *temp_block = new char[this->config_.blocksize];
+  //memcpy(temp_block, replace_entry->block, this->config_.blocksize);
+  //memcpy(replace_entry->block, block, this->config_.blocksize);
+
+  // linked list arrangement
+  CacheEntry* entry = FindEntry(set_index, tag);
+  if(entry == NULL)
+  {
+      printf("sth wrong in LRUrefresh.\n");
+      exit(0);
+  }
+
+  if(set->head == entry)
+    return;
+  if(set->tail == entry)
+    set->tail = entry->pre;
+  entry->pre->next = entry->next;
+  if(entry->next != NULL)
+    entry->next->pre = entry->pre;
+  entry->next = set->head;
+  set->head->pre = entry;
+  set->head = entry;
+  entry->pre = NULL;
 }
