@@ -76,6 +76,10 @@ void InitDefaultSettings(StorageStats& storage_stats, StorageLatency& latency_m,
     cache_config[1].pre_fetch = true;
     cache_config[2].pre_fetch = false;
     cache_config[3].pre_fetch = false;
+
+    cache_config[1].bypass = false;
+    cache_config[2].bypass = false;
+    cache_config[3].bypass = false;
     levelNum = 1;
 
 
@@ -160,7 +164,7 @@ void GetSettings(int& argc, char *argv[], int& levelNum, CacheConfig* cache_conf
             for(i = 1; i <= levelNum; i++)
             {
                 latency_c[i].bus_latency = atoi(*(argv + i));
-                CHECK(latency_c[i].bus_latency > 0, "invalid cache bus latency");
+                CHECK(latency_c[i].bus_latency >= 0, "invalid cache bus latency");
             }
             argCount = levelNum + 1;
         }
