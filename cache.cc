@@ -342,16 +342,17 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       lower_->HandleRequest(addr, bytes, read, content,
                           lower_hit, lower_time);
       hit = 0;
-      time += latency_.bus_latency + lower_time;
+      time += latency_.bus_latency + latency_.hit_latency + lower_time;
       stats_.access_time += latency_.bus_latency;
       stats_.miss_num++;
 
-/*      // bypass
-      if(config_.bypass && cacheset[set_index].empty_num <= 0 && tag != cacheset[set_index].last_evicted_tag){
+      // bypass
+      if(config_.bypass && cacheset[set_index].empty_num < 0 && tag != cacheset[set_index].last_evicted_tag){
+        time -= latency_.hit_latency;
         // return directely
         return;
       }
- */
+ 
     }
     // hit
     else {
@@ -388,9 +389,9 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
     if(entry == NULL){
       // write-allocate
       stats_.miss_num++;
- /*     
+      
       // bypass
-      if(config_.bypass && cacheset[set_index].empty_num <= 0 && tag != cacheset[set_index].last_evicted_tag){
+      if(config_.bypass && cacheset[set_index].empty_num < 0 && tag != cacheset[set_index].last_evicted_tag){
         // directly write lower layer
         int lower_hit, lower_time;
         lower_->HandleRequest(addr, bytes, FALSE, content,
@@ -401,7 +402,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
         // return directely
         return;
       }
-  */
+  
       if (this->config_.write_allocate == TRUE){
         // read
         char update_content[64];  // avoid data lost of content
@@ -422,7 +423,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
         lower_->HandleRequest(addr, bytes, FALSE, content,
                          lower_hit, lower_time);
         hit = 0;
-        time += latency_.bus_latency + lower_time;
+        time += latency_.bus_latency + latency_.hit_latency + lower_time;
         stats_.access_time += latency_.bus_latency;
       }
     }
@@ -565,7 +566,7 @@ void Cache::PrefetchAlgorithm(uint64_t prefetch_addr) {
     if(FindEntry(set_index, tag) != NULL)
         return;
     stats_.prefetch_num++;
-    //this->cacheset[set_index].lru.replacement(prefetch_addr, tag);
+    //this->cacheset[set_index].lru.replacement(prefetch_addr, tag, cacheset[set_index].last_evicted_tag);
     this->cacheset[set_index].lirs.replacement(prefetch_addr, tag, cacheset[set_index].last_evicted_tag);
     //printf("temp_block=%x\n", temp_block);
     // write back

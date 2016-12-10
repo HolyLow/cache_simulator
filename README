@@ -12,3 +12,8 @@
     -b [l1 blocksize] [l2 blocksize] ... : 定制各层cache的block大小，单位为B，参数数量必须符合cache层数，否则会报错；
     -hl [l1 hitlatency] [l2 hitlatency] ... : 定制各层cache的hit_latency周期数，参数数量必须符合cache层数，否则会报错；
     -bl [l1 buslatency] [l2 buslatency] ... : 定制各层cache的bus_latency周期数，参数数量必须符合cache层数，否则会报错；
+
+    example:
+    ./sim -f 1.trace -l 2 -s 64 256 -a 8 8 -p 2 2 -b 64 64 -bl 0 6
+
+    
