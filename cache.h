@@ -28,7 +28,7 @@ typedef struct CacheEntry_{
 
 } CacheEntry;
 
-// LRUList for LRU
+// LRUList fo r LRU
 class LRUList{
   public:
     LRUList(){}

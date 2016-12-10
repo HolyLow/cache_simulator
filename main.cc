@@ -233,7 +233,6 @@ int main(int argc, char *argv[])
     while(fscanf(input, "%c %lx\n", &ch_wORr, &addr) != EOF)
     {
         content[0] = 0;
-
         //printf("*************************************************************************\n");
         int bl_wORr;
         if(ch_wORr == 'w'){
