@@ -14,6 +14,271 @@ int log2(int temp){
     return num;
 }
 
+/************************************************/
+/*                                              */
+/*                                              */
+/*          LRU List                            */
+/*                                              */
+/*                                              */
+/************************************************/
+
+
+void LRUList::init(CacheEntry* StartEntry, int associativity){
+  for(int i = 0; i < associativity; i++){
+    this->v.push_back(&StartEntry[i]);
+  }
+}
+
+CacheEntry* LRUList::delete_back(){
+  CacheEntry *entry = this->v.back();
+  this->v.pop_back();
+  return entry;
+}
+
+void LRUList::add_front(CacheEntry* entry){
+  this->v.insert(this->v.begin(), entry);
+}
+
+void LRUList::refresh(CacheEntry* entry){
+  std::vector<CacheEntry*>::iterator iter = std::find(this->v.begin(), this->v.end(), entry);
+  if(iter == this->v.end()){
+    printf("cannot find entry in LRU refresh!\n");
+  } 
+  else{
+    this->v.erase(iter);
+    this->add_front(entry);
+  }
+}
+
+uint64_t LRUList::replacement(uint64_t addr, uint64_t tag, uint64_t &evicted_tag){
+  // get from back
+  CacheEntry* entry = this->delete_back();
+  uint64_t write_back_addr = entry->addr;
+  evicted_tag = entry->tag;
+  // set addr, tag, valid
+  entry->tag = tag;
+  entry->addr = addr;
+  entry->valid = TRUE;
+  // add to front
+  this->add_front(entry);
+  // check write back
+  if(entry->write_back){
+    entry->write_back = FALSE;
+    return write_back_addr;
+  }
+  entry->write_back = FALSE;
+  return -1;
+}
+
+/************************************************/
+/*                                              */
+/*                                              */
+/*          LIRS                                */
+/*                                              */
+/*                                              */
+/************************************************/
+
+
+void LIRS::Stack_push(BlockState* state){
+  this->Stack.insert(this->Stack.begin(), state);
+}
+
+BlockState* LIRS::Stack_pop(){
+  BlockState* state = this->Stack.back();
+  this->Stack.pop_back();
+  return state;
+}
+
+BlockState* LIRS::Stack_find(uint64_t tag){
+  for(std::vector<BlockState*>::iterator iter = this->Stack.begin(); iter != this->Stack.end(); iter++){
+    if((*iter)->tag == tag)
+      return *iter;
+  } 
+  printf("cannot find tag=%lx in LIRS Stack\n", tag);
+  return NULL;
+}
+
+BlockState* LIRS::Stack_delete(uint64_t tag){
+  BlockState* state = this->Stack_find(tag);
+  std::vector<BlockState*>::iterator iter = std::find(this->Stack.begin(), this->Stack.end(), state);
+  if(iter != this->Stack.end())
+    this->Stack.erase(iter);
+  return state;
+}
+
+void LIRS::Stack_prune(){
+  //this->print();
+  for(std::vector<BlockState*>::reverse_iterator iter = this->Stack.rbegin(); iter != this->Stack.rend(); iter++ ){
+    // if HIR delete
+    if(!(*iter)->LIR)
+      this->Stack_pop();
+    else
+      break;
+  }
+
+}
+
+BlockState* LIRS::ListQ_find(uint64_t tag){
+  for(std::vector<BlockState*>::iterator iter = this->ListQ.begin(); iter != this->ListQ.end(); iter++){
+    if((*iter)->tag == tag)
+      return *iter;
+  } 
+  printf("cannot find tag=%lx in LIRS ListQ\n", tag);
+  return NULL;
+}
+
+BlockState* LIRS::ListQ_delete(uint64_t tag){
+  BlockState* state = this->ListQ_find(tag);
+  std::vector<BlockState*>::iterator iter = std::find(this->ListQ.begin(), this->ListQ.end(), state);
+  if(iter != this->ListQ.end())
+    this->ListQ.erase(iter);
+  return state;
+}
+
+void LIRS::ListQ_push(BlockState* state){
+  this->ListQ.insert(this->ListQ.begin(), state);
+}
+
+BlockState* LIRS::ListQ_pop(){
+  if(this->ListQ.empty())
+    return NULL;
+  BlockState* state = this->ListQ.back();
+  this->ListQ.pop_back();
+  return state;  
+}
+
+void LIRS::init(CacheEntry* StartEntry, int associativity){
+  this->LIR_num = associativity * 0.7;
+  this->HIR_num = associativity - this->LIR_num;
+
+  // generate LIR
+  for(int i = 0; i < this->LIR_num; i++){
+    BlockState* state = new BlockState();
+    state->entry = StartEntry;
+    StartEntry++;
+    state->resident = TRUE;
+    state->LIR = TRUE;
+    this->Stack_push(state);
+  }
+
+  // generate HIR
+  for(int i = 0; i < this->HIR_num; i++){
+    BlockState* state = new BlockState();
+    state->entry = StartEntry;
+    StartEntry++;
+    state->resident = TRUE;
+    state->LIR = FALSE;
+    this->Stack_push(state);
+    this->ListQ_push(state);
+  }
+
+  return;
+}
+
+void LIRS::refresh(uint64_t tag){
+  BlockState* state = this->Stack_delete(tag);
+  // resident-HIR in ListQ
+  // push to Stack top
+  if(state == NULL){
+    state = this->ListQ_delete(tag);
+    if(state == NULL){
+      printf("state not in Stack and ListQ\n");
+      exit(1);
+    }
+    this->ListQ_push(state);
+    this->Stack_push(state);
+    return;
+  }
+  // LIR
+  // repush tp Stack top
+  if(state->LIR){
+    this->Stack_push(state);
+    this->Stack_prune();
+  }
+  // resident-HIR in stack -> LIR
+  // replaced LIR -> HIR, removed from Stack, push to ListQ
+  else{
+    state->LIR = TRUE;
+    this->Stack_push(state);
+    this->Stack_prune();
+    this->ListQ_delete(state->tag);
+    BlockState* state = this->Stack_pop();
+    state->LIR = FALSE;
+    this->ListQ_push(state);
+  }
+
+}
+
+uint64_t LIRS::replacement(uint64_t addr, uint64_t tag, uint64_t &evicted_tag){
+  // get the block to replace
+  BlockState* state = this->ListQ_pop();
+  CacheEntry* entry = state->entry;
+  uint64_t write_back_addr = entry->addr;
+  evicted_tag = entry->tag;
+  // replace in
+  entry->addr = addr;
+  entry->tag = tag;
+  entry->valid = TRUE;
+
+  // to-be-replaced block also in Stack
+  if(this->Stack_find(state->tag) != NULL){
+    state->resident = FALSE;
+  }
+  
+  // new state
+  BlockState* new_state = this->Stack_find(tag);
+  // if new state not in Stack
+  if(new_state == NULL){
+    new_state = new BlockState();
+    new_state->entry = entry;
+    new_state->tag = tag;
+    new_state->LIR = FALSE;
+    new_state->resident = TRUE;
+    this->Stack_push(new_state);
+    this->ListQ_push(new_state);
+  }
+  // new state already in Stack
+  else{
+    new_state->LIR = TRUE;
+    new_state->resident = TRUE;
+    this->Stack_delete(new_state->tag);
+    this->Stack_push(new_state);
+    // pop LIR -> HIR
+    BlockState* trans_state = Stack_pop();
+    trans_state->LIR = FALSE;
+    this->ListQ_push(trans_state);
+  }
+
+  // check write back
+  if(entry->write_back){
+    entry->write_back = FALSE;
+    return write_back_addr;
+  }
+  entry->write_back = FALSE;
+  return -1;
+}
+
+void LIRS::print(){
+  printf("Stack: ");
+  for(std::vector<BlockState*>::reverse_iterator iter = this->Stack.rbegin(); iter != this->Stack.rend(); iter++ ){
+    printf("%lx|%d ", (*iter)->tag, (*iter)->LIR);
+  }
+  printf("\n");
+  printf("ListQ: ");
+  for(std::vector<BlockState*>::reverse_iterator iter = this->ListQ.rbegin(); iter != this->ListQ.rend(); iter++){
+    printf("%lx|%d ", (*iter)->tag, (*iter)->LIR);
+  }
+  printf("\n");
+}
+
+/************************************************/
+/*                                              */
+/*                                              */
+/*         Cache                                */
+/*                                              */
+/*                                              */
+/************************************************/
+
 void Cache::printEntry(CacheEntry* entry){
   printf("addr=%lx, tag=%lx, valid=%d\n", entry, entry->tag, entry->valid);
 }
@@ -21,14 +286,9 @@ void Cache::printEntry(CacheEntry* entry){
 void Cache::printSet(CacheSet* set, int associativity){
   printf("set_index = %d, associativity=%d\n", set->index, associativity);
   printf("---------------------------------------------\n");
-  CacheEntry *current = set->head;
-  while(current != NULL){
-    this->printEntry(current);
-    current = current->next;
-  }
+  
   printf("---------------------------------------------\n");
 }
-
 
 
 void Cache::BuildCache(){
@@ -43,23 +303,15 @@ void Cache::BuildCache(){
   for(int i = 0; i < set_num; i++){
     this->cacheset[i].index = i;
     this->cacheset[i].entry = new CacheEntry[associativity];
-    this->cacheset[i].head  = &this->cacheset[i].entry[0];
-    this->cacheset[i].tail  = &this->cacheset[i].entry[associativity-1];
+    this->cacheset[i].last_evicted_tag = 0;
+    this->cacheset[i].empty_num = associativity;
+    this->cacheset[i].lru.init(this->cacheset[i].entry, associativity);
+    this->cacheset[i].lirs.init(this->cacheset[i].entry, associativity);
     // for every cache entry
     for(int j = 0; j < associativity; j++){
       this->cacheset[i].entry[j].valid = FALSE;
       this->cacheset[i].entry[j].write_back = FALSE;
       this->cacheset[i].entry[j].latest_visit_offset = -1;
-      // pre
-      if (j == 0)
-         this->cacheset[i].entry[j].pre = NULL;
-      else
-         this->cacheset[i].entry[j].pre = &this->cacheset[i].entry[j-1];
-      // next
-      if (j == associativity-1)
-         this->cacheset[i].entry[j].next = NULL;
-      else
-         this->cacheset[i].entry[j].next = &this->cacheset[i].entry[j+1];
     }
   }
 }
@@ -74,12 +326,10 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
   int set_index_bits    = log2(this->config_.set_num);
   uint64_t block_offset = ONES(block_offset_bits-1, 0) & addr;
   uint64_t set_index    = (ONES(block_offset_bits+set_index_bits-1, block_offset_bits) & addr) >> block_offset_bits;
-  uint64_t tag          = (ONES(31, block_offset_bits+set_index_bits) & addr) >> (block_offset_bits+set_index_bits);
+  uint64_t tag          = (ONES(63, block_offset_bits+set_index_bits) & addr) >> (block_offset_bits+set_index_bits);
 
-  //printf("block_offset_bits=%d, set_index_bits=%d\n", block_offset_bits, set_index_bits);
+  //printf("block_offset_bits=%lx, set_index_bits=%lx\n", block_offset_bits, set_index_bits);
   //printf("read=%d, block_offset=%lx, set_index=%lx, tag=%lx\n", read, block_offset, set_index, tag);
-
-  //printSet(&this->cacheset[set_index], this->config_.associativity);
 
   // read
   if(read == TRUE){
@@ -95,6 +345,13 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       time += latency_.bus_latency + lower_time;
       stats_.access_time += latency_.bus_latency;
       stats_.miss_num++;
+
+/*      // bypass
+      if(config_.bypass && cacheset[set_index].empty_num <= 0 && tag != cacheset[set_index].last_evicted_tag){
+        // return directely
+        return;
+      }
+ */
     }
     // hit
     else {
@@ -103,45 +360,58 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
       hit = 1;
       time += latency_.bus_latency + latency_.hit_latency;
       stats_.access_time += time;
-      LRUrefresh(set_index, tag);
-    //   return;
+      //this->cacheset[set_index].lru.refresh(entry);
+      this->cacheset[set_index].lirs.refresh(tag);
     }
 
     // return back, write content(block from the lower layer) to this layer
     if(hit == 0){
-      char *temp_block = LRUreplacement(set_index, tag);
-      //printf("temp_block=%x\n", temp_block);
-      // write back
-      if(temp_block != NULL){
+      
+      //uint64_t write_back_addr = this->cacheset[set_index].lru.replacement(addr, tag, cacheset[set_index].last_evicted_tag);
+      uint64_t write_back_addr = this->cacheset[set_index].lirs.replacement(addr, tag, cacheset[set_index].last_evicted_tag);
+      if(write_back_addr > 0){
         int lower_hit, lower_time;
-        lower_->HandleRequest(addr, this->config_.blocksize, FALSE, temp_block,
-                          lower_hit, lower_time);
+        lower_->HandleRequest(write_back_addr, this->config_.blocksize, FALSE, content,
+                           lower_hit, lower_time);
         // write-back time don't care?
         //time += lower_time;
       }
-
     }
-
+      
   }
 
   // write
   else{
     CacheEntry* entry = FindEntry(set_index, tag);
-
+  
     // miss
     if(entry == NULL){
       // write-allocate
       stats_.miss_num++;
+ /*     
+      // bypass
+      if(config_.bypass && cacheset[set_index].empty_num <= 0 && tag != cacheset[set_index].last_evicted_tag){
+        // directly write lower layer
+        int lower_hit, lower_time;
+        lower_->HandleRequest(addr, bytes, FALSE, content,
+                         lower_hit, lower_time);
+        hit = 0;
+        time += latency_.bus_latency + lower_time;
+        stats_.access_time += latency_.bus_latency;
+        // return directely
+        return;
+      }
+  */
       if (this->config_.write_allocate == TRUE){
         // read
         char update_content[64];  // avoid data lost of content
         this->HandleRequest(addr, bytes, TRUE, update_content,
-                          hit, time);
+                           hit, time);
         stats_.access_counter--;
         stats_.miss_num--;
         // write with hit
         this->HandleRequest(addr, bytes, FALSE, content,
-                          hit, time);
+                           hit, time);
         stats_.access_counter--;
         hit = 0;
       }
@@ -150,7 +420,7 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
         // directly write lower layer
         int lower_hit, lower_time;
         lower_->HandleRequest(addr, bytes, FALSE, content,
-                          lower_hit, lower_time);
+                         lower_hit, lower_time);
         hit = 0;
         time += latency_.bus_latency + lower_time;
         stats_.access_time += latency_.bus_latency;
@@ -169,25 +439,29 @@ void Cache::HandleRequest(uint64_t addr, int bytes, int read,
         hit = 1;
         time += latency_.bus_latency + latency_.hit_latency + lower_time;
         stats_.access_time += latency_.bus_latency + latency_.hit_latency;
-        LRUrefresh(set_index, tag);
       }
       // write-back
       else{
         // write current layer
-
         hit = 1;
         entry->write_back = TRUE;
         time += latency_.bus_latency + latency_.hit_latency;
         stats_.access_time += latency_.bus_latency + latency_.hit_latency;
-        LRUrefresh(set_index, tag);
       }
-
+      //this->cacheset[set_index].lru.refresh(entry);
+      this->cacheset[set_index].lirs.refresh(tag);
     }
   }
+
+  this->cacheset[set_index].empty_num--;
+
   if(config_.pre_fetch)
     PrefetchDecision(set_index, tag, block_offset);
   CacheEntry* entry = FindEntry(set_index, tag);
   entry->latest_visit_offset = block_offset;
+
+
+  //printSet(&this->cacheset[set_index], this->config_.associativity);
 
 /*
   // Bypass?
@@ -257,25 +531,28 @@ void Cache::PrefetchDecision(uint64_t set_index, uint64_t tag, uint64_t current_
         int block_offset_bits = log2(this->config_.blocksize);
         int set_index_bits    = log2(this->config_.set_num);
         if(step >= config_.blocksize || step <= -1 * config_.blocksize)
-            printf("error: step = %d\n");
+            printf("error: step = %d\n", step);
         if(step + current_visit_offset >= config_.blocksize && FindEntry((set_index + 1) % this->config_.set_num, tag) == NULL)
         {
             printf("decide to prefetch down!\n");
             printf("step = %d\n", step);
-            printf("set_index = %d\n", set_index);
+            printf("set_index = %ld\n", set_index);
             uint64_t prefetch_addr = (set_index << block_offset_bits) | (tag << (block_offset_bits+set_index_bits));
             prefetch_addr += 1 << block_offset_bits;
             PrefetchAlgorithm(prefetch_addr);
+            this->cacheset[set_index].empty_num;
         }
         else if(step + current_visit_offset < 0 && FindEntry((set_index - 1) % this->config_.set_num, tag) == NULL)
         {
             printf("decide to prefetch up!\n");
             printf("step = %d\n", step);
-            printf("set_index = %d\n", set_index);
+            printf("set_index = %ld\n", set_index);
             uint64_t prefetch_addr = (set_index << block_offset_bits) | (tag << (block_offset_bits+set_index_bits));
             prefetch_addr -= 1 << block_offset_bits;
             PrefetchAlgorithm(prefetch_addr);
+            this->cacheset[set_index].empty_num--;
         }
+
     }
 }
 
@@ -284,11 +561,12 @@ void Cache::PrefetchAlgorithm(uint64_t prefetch_addr) {
     int set_index_bits    = log2(this->config_.set_num);
     // uint64_t block_offset = ONES(block_offset_bits-1, 0) & addr;
     uint64_t set_index    = (ONES(block_offset_bits+set_index_bits-1, block_offset_bits) & prefetch_addr) >> block_offset_bits;
-    uint64_t tag          = (ONES(31, block_offset_bits+set_index_bits) & prefetch_addr) >> (block_offset_bits+set_index_bits);
+    uint64_t tag          = (ONES(63, block_offset_bits+set_index_bits) & prefetch_addr) >> (block_offset_bits+set_index_bits);
     if(FindEntry(set_index, tag) != NULL)
         return;
     stats_.prefetch_num++;
-    char *temp_block = LRUreplacement(set_index, tag);
+    //this->cacheset[set_index].lru.replacement(prefetch_addr, tag);
+    this->cacheset[set_index].lirs.replacement(prefetch_addr, tag, cacheset[set_index].last_evicted_tag);
     //printf("temp_block=%x\n", temp_block);
     // write back
     // if(temp_block != NULL){
@@ -312,64 +590,4 @@ CacheEntry* Cache::FindEntry(uint64_t set_index, uint64_t tag){
   return target_entry;
 }
 
-// get from tail, save to head
-char* Cache::LRUreplacement(uint64_t set_index, uint64_t tag){
-  CacheSet *replace_set = &this->cacheset[set_index];
-  CacheEntry *replace_entry = replace_set->tail;
 
-  char *temp_block = new char[this->config_.blocksize];
-  //memcpy(temp_block, replace_entry->block, this->config_.blocksize);
-  //memcpy(replace_entry->block, block, this->config_.blocksize);
-
-  // linked list arrangement
-  if(this->config_.associativity != 1){
-    replace_set->tail = replace_entry->pre;
-    replace_entry->pre->next = NULL;
-    replace_entry->pre = NULL;
-    replace_entry->next = replace_set->head;
-    replace_set->head->pre = replace_entry;
-    replace_set->head = replace_entry;
-  }
-
-  // set tag valid
-  replace_entry->valid = TRUE;
-  replace_entry->tag = tag;
-  replace_entry->latest_visit_offset = -1;
-  //check whether write back
-  if (replace_entry->write_back == TRUE){
-    replace_entry->write_back = FALSE;
-    return temp_block;
-  }
-  return NULL;
-}
-
-void Cache::LRUrefresh(uint64_t set_index, uint64_t tag){
-  if(this->config_.associativity == 1)
-    return;
-  CacheSet *set = &this->cacheset[set_index];
-  // CacheEntry *replace_entry = replace_set->tail;
-  //
-  // char *temp_block = new char[this->config_.blocksize];
-  //memcpy(temp_block, replace_entry->block, this->config_.blocksize);
-  //memcpy(replace_entry->block, block, this->config_.blocksize);
-
-  // linked list arrangement
-  CacheEntry* entry = FindEntry(set_index, tag);
-  if(entry == NULL)
-  {
-      printf("sth wrong in LRUrefresh.\n");
-      exit(0);
-  }
-
-  if(set->head == entry)
-    return;
-  if(set->tail == entry)
-    set->tail = entry->pre;
-  entry->pre->next = entry->next;
-  if(entry->next != NULL)
-    entry->next->pre = entry->pre;
-  entry->next = set->head;
-  set->head->pre = entry;
-  set->head = entry;
-  entry->pre = NULL;
-}
